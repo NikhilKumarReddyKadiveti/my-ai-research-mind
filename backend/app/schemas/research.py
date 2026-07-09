@@ -63,6 +63,8 @@ class AIChatRequest(BaseModel):
     message: str
     history: List["AIChatMessage"] = []
     mode: str = "chat"
+    provider: Optional[str] = None
+    api_key: Optional[str] = None
 
 class AIChatMessage(BaseModel):
     role: str
@@ -77,6 +79,8 @@ class AIImageChatRequest(BaseModel):
     image_data: str
     mime_type: str = "image/png"
     history: List[AIChatMessage] = []
+    provider: Optional[str] = None
+    api_key: Optional[str] = None
 
 class TutorResearchRequest(BaseModel):
     topic: str

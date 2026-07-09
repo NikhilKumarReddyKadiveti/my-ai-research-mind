@@ -163,7 +163,12 @@ async def assistant_chat(request: AIChatRequest):
 
     if wants_research:
         report = get_research_agent().research_topic(message)
-        summary = get_ai_service().research_summary(message, report["sources"])
+        summary = get_ai_service().research_summary(
+            message,
+            report["sources"],
+            provider=request.provider,
+            api_key=request.api_key,
+        )
         links = "\n".join(
             f"{index + 1}. {source['title']}\n   {source['url']}"
             for index, source in enumerate(report["sources"], start=1)
@@ -171,10 +176,21 @@ async def assistant_chat(request: AIChatRequest):
         return {"reply": f"{summary}\n\nSources:\n{links}", "success": True}
 
     if wants_tutor:
-        reply = get_ai_service().tutor_lesson(message, "beginner", history=history)
+        reply = get_ai_service().tutor_lesson(
+            message,
+            "beginner",
+            history=history,
+            provider=request.provider,
+            api_key=request.api_key,
+        )
         return {"reply": reply, "success": True}
 
-    reply = get_ai_service().chat(message, history=history)
+    reply = get_ai_service().chat(
+        message,
+        history=history,
+        provider=request.provider,
+        api_key=request.api_key,
+    )
     return {"reply": reply, "success": True}
 
 @app.post("/assistant/image", response_model=AIChatResponse)
@@ -187,6 +203,8 @@ async def assistant_image_chat(request: AIImageChatRequest):
         request.image_data,
         request.mime_type,
         history=[item.model_dump() for item in request.history][-16:],
+        provider=request.provider,
+        api_key=request.api_key,
     )
     return {"reply": reply, "success": True}
 
@@ -289,6 +307,8 @@ async def ai_chat(request: AIChatRequest, user: AuthUser = Depends(require_user)
         reply = get_ai_service().chat(
             request.message,
             history=[item.model_dump() for item in request.history][-16:],
+            provider=request.provider,
+            api_key=request.api_key,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc))

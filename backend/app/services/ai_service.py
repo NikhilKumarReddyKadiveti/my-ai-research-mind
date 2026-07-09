@@ -21,15 +21,32 @@ class AIService:
         self.model = os.getenv("OPENAI_MODEL", "gpt-5-mini")
         self.openai_disabled_reason = None
 
-    def chat(self, message: str, history: list[dict] | None = None) -> str:
+    def chat(
+        self,
+        message: str,
+        history: list[dict] | None = None,
+        provider: str | None = None,
+        api_key: str | None = None,
+    ) -> str:
+        user_provider, user_key = self._normalize_user_provider(provider, api_key)
+        system_instruction = (
+            "You are ResearchMind, an original AI assistant inside a website. "
+            "Think through the user's request and give the best practical answer. "
+            "Use the conversation history to stay consistent. "
+            "Do not say your answer is predefined. Be specific, helpful, and concise."
+        )
+        if user_key and user_provider == "gemini":
+            gemini_reply = self._gemini_generate(system_instruction, message, history=history, api_key=user_key)
+            if gemini_reply:
+                return self._sanitize_reply(gemini_reply)
+        if user_key and user_provider == "openai":
+            openai_reply = self._openai_generate(system_instruction, message, history=history, api_key=user_key)
+            if openai_reply:
+                return self._sanitize_reply(openai_reply)
+
         if self.ai_provider in ("auto", "gemini") and self.gemini_key:
             gemini_reply = self._gemini_generate(
-                system_instruction=(
-                    "You are ResearchMind, an original AI assistant inside a website. "
-                    "Think through the user's request and give the best practical answer. "
-                    "Use the conversation history to stay consistent. "
-                    "Do not say your answer is predefined. Be specific, helpful, and concise."
-                ),
+                system_instruction=system_instruction,
                 prompt=message,
                 history=history,
             )
@@ -75,7 +92,14 @@ class AIService:
             self.openai_disabled_reason = exc.__class__.__name__
             return self._local_reply(message)
 
-    def tutor_lesson(self, topic: str, level: str = "beginner", history: list[dict] | None = None) -> str:
+    def tutor_lesson(
+        self,
+        topic: str,
+        level: str = "beginner",
+        history: list[dict] | None = None,
+        provider: str | None = None,
+        api_key: str | None = None,
+    ) -> str:
         prompt = (
             f"Current learner message: {topic}\n"
             f"Learner level: {level}\n\n"
@@ -85,16 +109,31 @@ class AIService:
             "Give one clear concept, one short example, and one small practice question. Keep the tone natural."
         )
 
+        user_provider, user_key = self._normalize_user_provider(provider, api_key)
+        system_instruction = (
+            "You are ResearchMind Tutor, a warm but serious teacher inside a learning website. "
+            "You remember the conversation and move forward topic by topic. "
+            "Never claim to be Gemini, Alibaba, Qwen, OpenAI, or any provider. "
+            "Never say the answer is predefined. Avoid canned lesson templates. "
+            "For Python learners, teach by writing tiny runnable examples and asking one check question. "
+            "Do not ask if the learner is ready; start teaching immediately."
+        )
+        if user_key and user_provider == "gemini":
+            gemini_reply = self._gemini_generate(system_instruction, prompt, history=history, api_key=user_key)
+            if gemini_reply:
+                cleaned = self._sanitize_reply(gemini_reply)
+                if not self._is_weak_tutor_reply(cleaned):
+                    return cleaned
+        if user_key and user_provider == "openai":
+            openai_reply = self._openai_generate(system_instruction, prompt, history=history, api_key=user_key)
+            if openai_reply:
+                cleaned = self._sanitize_reply(openai_reply)
+                if not self._is_weak_tutor_reply(cleaned):
+                    return cleaned
+
         if self.ai_provider in ("auto", "gemini") and self.gemini_key:
             gemini_reply = self._gemini_generate(
-                system_instruction=(
-                    "You are ResearchMind Tutor, a warm but serious teacher inside a learning website. "
-                    "You remember the conversation and move forward topic by topic. "
-                    "Never claim to be Gemini, Alibaba, Qwen, OpenAI, or any provider. "
-                    "Never say the answer is predefined. Avoid canned lesson templates. "
-                    "For Python learners, teach by writing tiny runnable examples and asking one check question. "
-                    "Do not ask if the learner is ready; start teaching immediately."
-                ),
+                system_instruction=system_instruction,
                 prompt=prompt,
                 history=history,
             )
@@ -141,7 +180,13 @@ class AIService:
             self.openai_disabled_reason = "tutor_openai_failed"
             return self._local_tutor_lesson(topic, level, history=history)
 
-    def research_summary(self, query: str, sources: list[dict]) -> str:
+    def research_summary(
+        self,
+        query: str,
+        sources: list[dict],
+        provider: str | None = None,
+        api_key: str | None = None,
+    ) -> str:
         source_text = "\n".join(
             f"{index + 1}. {source.get('title')} - {source.get('url')}\n{source.get('content', '')[:500]}"
             for index, source in enumerate(sources[:6])
@@ -154,13 +199,24 @@ class AIService:
             "why these sources are relevant, and a good next step. Be honest if sources are weak. "
             "Do not invent dates, author names, or source details that are not provided."
         )
+        user_provider, user_key = self._normalize_user_provider(provider, api_key)
+        system_instruction = (
+            "You are ResearchMind Researcher. Use only the provided source notes. "
+            "Write an original research report with findings, comparison, recommendation, "
+            "and limitations. Do not invent sources, dates, authors, or metadata."
+        )
+        if user_key and user_provider == "gemini":
+            gemini_reply = self._gemini_generate(system_instruction, prompt, api_key=user_key)
+            if gemini_reply:
+                return self._sanitize_reply(gemini_reply)
+        if user_key and user_provider == "openai":
+            openai_reply = self._openai_generate(system_instruction, prompt, api_key=user_key)
+            if openai_reply:
+                return self._sanitize_reply(openai_reply)
+
         if self.ai_provider in ("auto", "gemini") and self.gemini_key:
             gemini_reply = self._gemini_generate(
-                system_instruction=(
-                    "You are ResearchMind Researcher. Use only the provided source notes. "
-                    "Write an original research report with findings, comparison, recommendation, "
-                    "and limitations. Do not invent sources, dates, authors, or metadata."
-                ),
+                system_instruction=system_instruction,
                 prompt=prompt,
             )
             if gemini_reply:
@@ -227,14 +283,30 @@ class AIService:
         image_data: str,
         mime_type: str = "image/png",
         history: list[dict] | None = None,
+        provider: str | None = None,
+        api_key: str | None = None,
     ) -> str:
+        user_provider, user_key = self._normalize_user_provider(provider, api_key)
+        system_instruction = (
+            "You are ResearchMind Vision Tutor. Inspect the image carefully and answer the user's "
+            "question. If they ask to learn, teach step by step. If they ask to research, explain "
+            "what the image contains and what to search next."
+        )
+        if user_key and user_provider == "gemini":
+            reply = self._gemini_generate(
+                system_instruction=system_instruction,
+                prompt=message,
+                history=history,
+                image_data=image_data,
+                mime_type=mime_type,
+                api_key=user_key,
+            )
+            if reply:
+                return self._sanitize_reply(reply)
+
         if self.ai_provider in ("auto", "gemini") and self.gemini_key:
             reply = self._gemini_generate(
-                system_instruction=(
-                    "You are ResearchMind Vision Tutor. Inspect the image carefully and answer the user's "
-                    "question. If they ask to learn, teach step by step. If they ask to research, explain "
-                    "what the image contains and what to search next."
-                ),
+                system_instruction=system_instruction,
                 prompt=message,
                 history=history,
                 image_data=image_data,
@@ -245,6 +317,8 @@ class AIService:
         return self.chat(
             f"The user uploaded an image, but image reasoning is unavailable. Answer from text only: {message}",
             history=history,
+            provider=provider,
+            api_key=api_key,
         )
 
     def _gemini_generate(
@@ -254,8 +328,10 @@ class AIService:
         history: list[dict] | None = None,
         image_data: str | None = None,
         mime_type: str = "image/png",
+        api_key: str | None = None,
     ) -> str | None:
-        if not self.gemini_key:
+        gemini_key = api_key or self.gemini_key
+        if not gemini_key:
             return None
 
         url = (
@@ -295,7 +371,7 @@ class AIService:
             response = httpx.post(
                 url,
                 headers={
-                    "x-goog-api-key": self.gemini_key,
+                    "x-goog-api-key": gemini_key,
                     "Content-Type": "application/json",
                 },
                 json=payload,
@@ -309,6 +385,42 @@ class AIService:
         except Exception as exc:
             print(f"Gemini request failed: {exc}")
             return None
+
+    def _openai_generate(
+        self,
+        system_instruction: str,
+        prompt: str,
+        history: list[dict] | None = None,
+        api_key: str | None = None,
+    ) -> str | None:
+        key = (api_key or "").strip()
+        if not key:
+            return None
+        messages = [{"role": "system", "content": system_instruction}]
+        for item in (history or [])[-16:]:
+            role = "assistant" if item.get("role") in {"assistant", "model"} else "user"
+            content = (item.get("content") or "").strip()
+            if content:
+                messages.append({"role": role, "content": content[:4000]})
+        messages.append({"role": "user", "content": prompt})
+        try:
+            client = OpenAI(api_key=key, timeout=18, max_retries=0)
+            response = client.responses.create(model=self.model, input=messages)
+            return response.output_text.strip() or None
+        except Exception as exc:
+            print(f"User OpenAI request failed: {exc}")
+            return None
+
+    def _normalize_user_provider(self, provider: str | None, api_key: str | None) -> tuple[str | None, str | None]:
+        key = (api_key or "").strip()
+        if not key:
+            return None, None
+        selected = (provider or "auto").strip().lower()
+        if selected == "auto":
+            selected = "openai" if key.startswith("sk-") else "gemini"
+        if selected not in {"gemini", "openai"}:
+            selected = "gemini"
+        return selected, key
 
     def _ollama_generate(self, system_instruction: str, prompt: str, history: list[dict] | None = None) -> str | None:
         history_text = "\n".join(

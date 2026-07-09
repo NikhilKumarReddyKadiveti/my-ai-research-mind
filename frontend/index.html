@@ -498,6 +498,24 @@
               <h1>Online Memory</h1>
               <p class="sub" id="memoryStatus">Sign in to sync chats, tutor sessions, research resources, and training runs.</p>
             </div>
+            <div class="card">
+              <h1>AI Provider</h1>
+              <p class="sub">Use your own API key for personal requests, or leave it empty to continue with the app's default AI.</p>
+              <label for="aiProvider">Provider</label>
+              <select id="aiProvider">
+                <option value="auto">Auto detect from key</option>
+                <option value="gemini">Gemini</option>
+                <option value="openai">OpenAI</option>
+              </select>
+              <label for="userApiKey">Personal API key</label>
+              <input id="userApiKey" type="password" autocomplete="off" placeholder="Paste Gemini or OpenAI key" />
+              <p class="sub">Stored only in this browser. It is sent to the backend for AI requests, but not saved in chat history.</p>
+              <div class="row">
+                <button class="btn primary" id="saveApiKey" type="button">Save API key</button>
+                <button class="btn" id="clearApiKey" type="button">Use app default</button>
+              </div>
+              <p class="sub" id="apiKeyStatus">Using app default AI.</p>
+            </div>
           </div>
 
           <section class="chat" id="chat" aria-live="polite"></section>
@@ -576,8 +594,12 @@
       const signInButton = document.querySelector("#signIn");
       const signUpButton = document.querySelector("#signUp");
       const signOutButton = document.querySelector("#signOut");
+      const aiProviderEl = document.querySelector("#aiProvider");
+      const userApiKeyEl = document.querySelector("#userApiKey");
+      const apiKeyStatus = document.querySelector("#apiKeyStatus");
 
       const conversationsKey = "researchmind-conversations-v2";
+      const apiKeySettingsKey = "researchmind-ai-key-settings-v1";
       let conversations = loadConversations();
       let activeId = conversations[0]?.id || createConversation();
       let activePage = "chat";
@@ -589,6 +611,7 @@
 
       function init() {
         wireEvents();
+        renderApiKeySettings();
         initSupabase();
         renderAll();
       }
@@ -624,6 +647,8 @@
         document.querySelector("#deleteSelectedChat").addEventListener("click", deleteSelectedChat);
         document.querySelector("#deleteHistory").addEventListener("click", deleteHistory);
         document.querySelector("#exportTraining").addEventListener("click", exportTrainingData);
+        document.querySelector("#saveApiKey").addEventListener("click", saveApiKeySettings);
+        document.querySelector("#clearApiKey").addEventListener("click", clearApiKeySettings);
         imageInput.addEventListener("change", loadImage);
         cropArea.addEventListener("mousedown", startCrop);
         document.querySelector("#cropImage").addEventListener("click", cropImage);
@@ -644,6 +669,50 @@
         } catch {
           authStatus.textContent = "Auth is unavailable right now.";
         }
+      }
+
+      function loadApiKeySettings() {
+        try {
+          return JSON.parse(localStorage.getItem(apiKeySettingsKey)) || { provider: "auto", apiKey: "" };
+        } catch {
+          return { provider: "auto", apiKey: "" };
+        }
+      }
+
+      function renderApiKeySettings() {
+        const settings = loadApiKeySettings();
+        aiProviderEl.value = settings.provider || "auto";
+        userApiKeyEl.value = settings.apiKey || "";
+        const hasKey = Boolean((settings.apiKey || "").trim());
+        const label = settings.provider === "openai" ? "OpenAI" : settings.provider === "gemini" ? "Gemini" : "auto-detected";
+        apiKeyStatus.textContent = hasKey
+          ? `Using your personal ${label} key for AI requests in this browser.`
+          : "Using app default AI.";
+      }
+
+      function saveApiKeySettings() {
+        const apiKey = userApiKeyEl.value.trim();
+        const provider = aiProviderEl.value || "auto";
+        if (!apiKey) {
+          clearApiKeySettings();
+          return;
+        }
+        localStorage.setItem(apiKeySettingsKey, JSON.stringify({ provider, apiKey }));
+        renderApiKeySettings();
+      }
+
+      function clearApiKeySettings() {
+        localStorage.removeItem(apiKeySettingsKey);
+        renderApiKeySettings();
+      }
+
+      function aiRequestSettings() {
+        const settings = loadApiKeySettings();
+        if (!(settings.apiKey || "").trim()) return {};
+        return {
+          provider: settings.provider || "auto",
+          api_key: settings.apiKey.trim()
+        };
       }
 
       function showPage(name) {
@@ -681,7 +750,7 @@
           const response = await fetch("/assistant/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message, history, mode: activePage })
+            body: JSON.stringify({ message, history, mode: activePage, ...aiRequestSettings() })
           });
           const data = await response.json();
           if (!response.ok) throw new Error(data.detail || `Request failed with status ${response.status}`);
@@ -715,7 +784,8 @@
               message: question,
               image_data: imageState.croppedData,
               mime_type: imageState.mime,
-              history
+              history,
+              ...aiRequestSettings()
             })
           });
           const data = await response.json();
