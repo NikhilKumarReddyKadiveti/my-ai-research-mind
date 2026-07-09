@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "ResearchMind",
+    "slug": "researchmind",
+    "scheme": "researchmind",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.researchmind.app"
+    },
+    "android": {
+      "package": "com.researchmind.app",
+      "permissions": []
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    }
+  }
+}

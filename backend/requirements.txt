@@ -1,0 +1,13 @@
+beautifulsoup4
+chromadb
+duckduckgo-search
+fastapi
+httpx
+openai
+pydantic
+pypdf
+python-dotenv
+requests
+sentence-transformers
+uvicorn[standard]
+youtube-transcript-api

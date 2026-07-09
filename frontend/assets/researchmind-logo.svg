@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="ResearchMind logo">
+  <defs>
+    <linearGradient id="rmGlow" x1="18" y1="110" x2="112" y2="18" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbbc04"/>
+      <stop offset=".48" stop-color="#34a853"/>
+      <stop offset="1" stop-color="#4285f4"/>
+    </linearGradient>
+    <radialGradient id="rmCore" cx="46" cy="38" r="74" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".38" stop-color="#d9fff2"/>
+      <stop offset="1" stop-color="#0f1418"/>
+    </radialGradient>
+  </defs>
+  <rect width="128" height="128" rx="30" fill="#101010"/>
+  <path d="M23 76c0-31 21-53 52-53h29v29c0 31-22 52-53 52H23V76Z" fill="url(#rmGlow)"/>
+  <path d="M37 72c0-20 14-35 35-35h18v18c0 21-15 36-36 36H37V72Z" fill="url(#rmCore)" opacity=".94"/>
+  <path d="M48 70h16c12 0 21-9 21-21v-3H71c-13 0-23 10-23 24Z" fill="#111" opacity=".72"/>
+  <circle cx="79" cy="47" r="7" fill="#f5f5f5"/>
+  <path d="M32 96 94 34" stroke="#f5f5f5" stroke-width="6" stroke-linecap="round" opacity=".9"/>
+</svg>

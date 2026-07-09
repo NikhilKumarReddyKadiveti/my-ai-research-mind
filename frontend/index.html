@@ -1,0 +1,1379 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ResearchMind</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #181818;
+        --side: #101010;
+        --panel: #202020;
+        --panel-2: #2a2a2a;
+        --text: #f5f5f5;
+        --muted: #aeb4bf;
+        --line: #343434;
+        --blue: #4285f4;
+        --green: #34a853;
+        --yellow: #fbbc04;
+        --danger: #ef5350;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        height: 100vh;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button, textarea, input, select { font: inherit; }
+      button { cursor: pointer; }
+      button:hover { border-color: #565656; }
+
+      .app {
+        height: 100vh;
+        display: grid;
+        grid-template-columns: 286px minmax(0, 1fr);
+      }
+
+      .sidebar {
+        min-height: 0;
+        border-right: 1px solid var(--line);
+        background: var(--side);
+        padding: 14px;
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr);
+        gap: 14px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 800;
+      }
+
+      .mark {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        object-fit: contain;
+      }
+
+      .nav, .history {
+        display: grid;
+        gap: 7px;
+      }
+
+      .nav button, .history button, .btn, .chip {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        min-height: 38px;
+        padding: 0 12px;
+        color: var(--text);
+        background: #1d1d1d;
+      }
+
+      .nav button {
+        text-align: left;
+      }
+
+      .nav button.active, .chip.active, .btn.primary {
+        border-color: transparent;
+        color: #101010;
+        background: #f5f5f5;
+        font-weight: 800;
+      }
+
+      .history-wrap {
+        min-height: 0;
+        overflow: auto;
+      }
+
+      .history-title {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 8px 4px;
+      }
+
+      .history button {
+        width: 100%;
+        text-align: left;
+        color: var(--muted);
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .history button.active {
+        color: var(--text);
+        background: var(--panel-2);
+      }
+
+      .main {
+        min-width: 0;
+        min-height: 0;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+      }
+
+      .topbar {
+        min-height: 58px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 0 22px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .top-left {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .page-title {
+        font-weight: 800;
+      }
+
+      .mobile-nav {
+        display: none;
+        gap: 7px;
+        overflow-x: auto;
+      }
+
+      .mobile-nav button {
+        white-space: nowrap;
+      }
+
+      .session {
+        color: var(--muted);
+        font-size: 13px;
+        white-space: nowrap;
+      }
+
+      .content {
+        min-height: 0;
+        overflow: auto;
+        padding: 22px;
+      }
+
+      .page {
+        display: none;
+        width: min(960px, 100%);
+        margin: 0 auto;
+      }
+
+      .page.active {
+        display: block;
+      }
+
+      .hero {
+        text-align: center;
+        padding: 46px 0 24px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(32px, 5vw, 46px);
+        font-weight: 550;
+      }
+
+      .sub {
+        color: var(--muted);
+        margin-top: 10px;
+      }
+
+      .chat {
+        display: grid;
+        gap: 18px;
+        width: min(960px, 100%);
+        margin: 18px auto 0;
+        padding-bottom: 8px;
+      }
+
+      .message {
+        display: grid;
+        gap: 7px;
+      }
+
+      .role {
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 750;
+      }
+
+      .bubble {
+        border-radius: 18px;
+        line-height: 1.6;
+        padding: 14px 16px;
+      }
+
+      .user .bubble {
+        justify-self: end;
+        max-width: 78%;
+        background: #303030;
+      }
+
+      .assistant .bubble {
+        background: transparent;
+        padding-left: 0;
+      }
+
+      .bubble p { margin: 0 0 12px; }
+      .bubble p:last-child { margin-bottom: 0; }
+      .bubble h3 { margin: 18px 0 8px; }
+      .bubble strong { font-weight: 850; }
+      .bubble code { background: #252525; border: 1px solid var(--line); padding: 2px 6px; border-radius: 6px; }
+
+      .composer {
+        border-top: 1px solid var(--line);
+        padding: 14px 22px;
+      }
+
+      .composer-inner {
+        width: min(960px, 100%);
+        margin: 0 auto;
+        border: 1px solid transparent;
+        border-radius: 22px;
+        background:
+          linear-gradient(var(--panel), var(--panel)) padding-box,
+          linear-gradient(95deg, var(--yellow), var(--green), var(--blue)) border-box;
+        padding: 12px;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 46px;
+        max-height: 140px;
+        resize: vertical;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text);
+        line-height: 1.5;
+      }
+
+      .composer-actions, .row, .actions, .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .composer-actions {
+        justify-content: space-between;
+        margin-top: 8px;
+      }
+
+      .btn {
+        min-height: 38px;
+      }
+
+      .btn.danger {
+        border-color: rgba(239, 83, 80, 0.45);
+        color: #ffb4b4;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        padding: 18px;
+        margin-bottom: 14px;
+      }
+
+      .card h1 {
+        font-size: clamp(26px, 4vw, 34px);
+      }
+
+      label {
+        display: block;
+        color: var(--muted);
+        margin: 12px 0 7px;
+        font-size: 13px;
+      }
+
+      input, select {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #151515;
+        color: var(--text);
+        padding: 0 12px;
+      }
+
+      .crop-area {
+        position: relative;
+        max-width: 760px;
+        min-height: 260px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+        background: #111;
+        margin-top: 14px;
+        display: grid;
+        place-items: center;
+      }
+
+      #imageCanvas {
+        width: 100%;
+        display: block;
+      }
+
+      .crop-box {
+        position: absolute;
+        border: 2px solid #f5f5f5;
+        background: rgba(66, 133, 244, 0.18);
+        display: none;
+        pointer-events: none;
+      }
+
+      .preview {
+        max-width: 260px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        margin-top: 12px;
+      }
+
+      .attachment-panel {
+        display: none;
+        width: min(960px, 100%);
+        margin: 0 auto 12px;
+      }
+
+      .attachment-panel.active {
+        display: block;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .attachment-panel .crop-area {
+        max-width: 100%;
+      }
+
+      .suggestions-title {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 22px 0 8px;
+      }
+
+      @media (max-width: 860px) {
+        .app { grid-template-columns: 1fr; }
+        .sidebar { display: none; }
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+          padding: 12px 14px;
+        }
+        .mobile-nav {
+          display: flex;
+          width: 100%;
+        }
+        .content, .composer {
+          padding-left: 14px;
+          padding-right: 14px;
+        }
+        .user .bubble { max-width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand"><img class="mark" src="/assets/researchmind-logo.svg" alt="" />ResearchMind</div>
+        <nav class="nav" aria-label="Pages">
+          <button class="active" data-page="chat" type="button">Chat</button>
+          <button data-page="research" type="button">Research</button>
+          <button data-page="tutor" type="button">Tutor</button>
+          <button data-page="settings" type="button">Settings</button>
+          <button id="newChat" type="button">New chat</button>
+        </nav>
+        <div class="history-wrap">
+          <div class="history-title">Recent chats</div>
+          <div class="history" id="history"></div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div class="top-left">
+            <div class="page-title" id="pageTitle">Chat</div>
+            <nav class="mobile-nav" aria-label="Mobile pages">
+              <button class="chip active" data-page="chat" type="button">Chat</button>
+              <button class="chip" data-page="research" type="button">Research</button>
+              <button class="chip" data-page="tutor" type="button">Tutor</button>
+              <button class="chip" data-page="settings" type="button">Settings</button>
+            </nav>
+          </div>
+          <div class="session" id="sessionLabel">Not signed in</div>
+        </header>
+
+        <section class="content">
+          <div class="page active" id="page-chat">
+            <div class="hero">
+              <h1>Ask ResearchMind anything</h1>
+              <p class="sub">Gemini-powered chat with recent conversation context.</p>
+            </div>
+            <div class="chips">
+              <button class="chip" type="button">Explain my project architecture</button>
+              <button class="chip" type="button">Write clean FastAPI code</button>
+              <button class="chip" type="button">Plan my next project feature</button>
+            </div>
+            <div class="suggestions-title">Suggestions from your recent chats</div>
+            <div class="chips" id="smartSuggestions"></div>
+          </div>
+
+          <div class="page" id="page-research">
+            <div class="card">
+              <h1>Research</h1>
+              <p class="sub">Search accessible web pages, then get a Gemini-written report with links.</p>
+              <div class="chips">
+                <button class="chip" type="button">Research free machine learning courses</button>
+                <button class="chip" type="button">Research latest beginner Python resources</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="page" id="page-tutor">
+            <div class="card">
+              <h1>Tutor</h1>
+              <p class="sub">Ask ResearchMind to teach slowly, topic by topic, with examples and questions.</p>
+              <div class="chips">
+                <button class="chip" type="button">Teach arrays like I am new to coding</button>
+                <button class="chip" type="button">Teach Python for data science step by step</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="page" id="page-settings">
+            <div class="card">
+              <h1>Settings</h1>
+              <div id="signedOutAuth">
+                <label for="email">Email</label>
+                <input id="email" type="email" autocomplete="email" />
+                <label for="password">Password</label>
+                <input id="password" type="password" autocomplete="current-password" />
+              </div>
+              <div class="actions" id="authActions">
+                <button class="btn primary" id="signIn" type="button">Sign in</button>
+                <button class="btn" id="signUp" type="button">Sign up</button>
+                <button class="btn hidden" id="signOut" type="button">Sign out</button>
+              </div>
+              <p class="sub" id="authStatus">Sign in to save and continue protected workflows later.</p>
+            </div>
+            <div class="card">
+              <h1>History</h1>
+              <p class="sub">Choose exactly which chat to delete, or clean older chats by date.</p>
+              <label for="deleteChatSelect">Chat to delete</label>
+              <select id="deleteChatSelect"></select>
+              <div class="row">
+                <button class="btn danger" id="deleteSelectedChat" type="button">Delete selected chat</button>
+              </div>
+              <label for="deleteAge">Or delete old chats</label>
+              <div class="row">
+                <select id="deleteAge">
+                  <option value="7">Older than 7 days</option>
+                  <option value="30">Older than 30 days</option>
+                  <option value="90">Older than 90 days</option>
+                  <option value="all">All chat history</option>
+                </select>
+                <button class="btn danger" id="deleteHistory" type="button">Delete history</button>
+              </div>
+              <div class="row">
+                <button class="btn" id="exportTraining" type="button">Export chats for local AI training</button>
+              </div>
+            </div>
+            <div class="card">
+              <h1>Online Memory</h1>
+              <p class="sub" id="memoryStatus">Sign in to sync chats, tutor sessions, research resources, and training runs.</p>
+            </div>
+          </div>
+
+          <section class="chat" id="chat" aria-live="polite"></section>
+        </section>
+
+        <footer class="composer">
+          <div class="attachment-panel" id="attachmentPanel">
+            <div class="card">
+              <div class="row">
+                <strong>Image attached</strong>
+                <button class="btn" id="removeImage" type="button">Remove image</button>
+              </div>
+              <p class="sub">Drag over the image to select the useful part. Send will ask Gemini using the selected area.</p>
+              <div class="crop-area" id="cropArea">
+                <canvas id="imageCanvas"></canvas>
+                <div class="crop-box" id="cropBox"></div>
+              </div>
+              <div class="actions">
+                <button class="btn" id="cropImage" type="button">Use selected area</button>
+                <button class="btn" id="askImage" type="button">Ask about image</button>
+              </div>
+              <img class="preview" id="cropPreview" alt="Selected crop preview" />
+            </div>
+          </div>
+          <div class="composer-inner">
+            <input id="imageInput" type="file" accept="image/*" hidden />
+            <textarea id="prompt" placeholder="Message ResearchMind..."></textarea>
+            <div class="composer-actions">
+              <div class="actions">
+                <button class="btn" id="mic" type="button">Mic</button>
+                <button class="btn" id="uploadShortcut" type="button">Upload</button>
+              </div>
+              <button class="btn primary" id="send" type="button">Send</button>
+            </div>
+          </div>
+        </footer>
+      </main>
+    </div>
+
+    <script src="/vendor/supabase.js"></script>
+    <script>
+      const createClient = window.supabase?.createClient;
+      const pages = {
+        chat: "Chat",
+        research: "Research",
+        tutor: "Tutor",
+        settings: "Settings"
+      };
+      const modePrompts = {
+        chat: "",
+        research: "Research this and give me a report with source links: ",
+        tutor: "Teach me step by step: ",
+        settings: ""
+      };
+
+      const promptEl = document.querySelector("#prompt");
+      const sendEl = document.querySelector("#send");
+      const chatEl = document.querySelector("#chat");
+      const historyEl = document.querySelector("#history");
+      const pageTitleEl = document.querySelector("#pageTitle");
+      const sessionLabel = document.querySelector("#sessionLabel");
+      const authStatus = document.querySelector("#authStatus");
+      const emailEl = document.querySelector("#email");
+      const passwordEl = document.querySelector("#password");
+      const imageInput = document.querySelector("#imageInput");
+      const canvas = document.querySelector("#imageCanvas");
+      const cropArea = document.querySelector("#cropArea");
+      const cropBox = document.querySelector("#cropBox");
+      const cropPreview = document.querySelector("#cropPreview");
+      const attachmentPanel = document.querySelector("#attachmentPanel");
+      const smartSuggestions = document.querySelector("#smartSuggestions");
+      const deleteChatSelect = document.querySelector("#deleteChatSelect");
+      const memoryStatus = document.querySelector("#memoryStatus");
+      const composer = document.querySelector(".composer");
+      const signedOutAuth = document.querySelector("#signedOutAuth");
+      const signInButton = document.querySelector("#signIn");
+      const signUpButton = document.querySelector("#signUp");
+      const signOutButton = document.querySelector("#signOut");
+
+      const conversationsKey = "researchmind-conversations-v2";
+      let conversations = loadConversations();
+      let activeId = conversations[0]?.id || createConversation();
+      let activePage = "chat";
+      let supabaseClient = null;
+      let session = null;
+      let imageState = { image: null, crop: null, croppedData: null, mime: "image/png" };
+
+      init();
+
+      function init() {
+        wireEvents();
+        initSupabase();
+        renderAll();
+      }
+
+      function wireEvents() {
+        document.querySelectorAll("[data-page]").forEach((button) => {
+          button.addEventListener("click", () => showPage(button.dataset.page));
+        });
+        document.querySelectorAll(".chip").forEach((chip) => {
+          chip.addEventListener("click", () => {
+            promptEl.value = chip.textContent.trim();
+            promptEl.focus();
+          });
+        });
+        document.querySelector("#newChat").addEventListener("click", () => {
+          activeId = createConversation();
+          saveConversations();
+          renderAll();
+          promptEl.focus();
+        });
+        sendEl.addEventListener("click", sendMessage);
+        promptEl.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            sendMessage();
+          }
+        });
+        document.querySelector("#uploadShortcut").addEventListener("click", () => imageInput.click());
+        document.querySelector("#mic").addEventListener("click", startVoiceInput);
+        document.querySelector("#signIn").addEventListener("click", () => signIn(false));
+        document.querySelector("#signUp").addEventListener("click", () => signIn(true));
+        document.querySelector("#signOut").addEventListener("click", signOut);
+        document.querySelector("#deleteSelectedChat").addEventListener("click", deleteSelectedChat);
+        document.querySelector("#deleteHistory").addEventListener("click", deleteHistory);
+        document.querySelector("#exportTraining").addEventListener("click", exportTrainingData);
+        imageInput.addEventListener("change", loadImage);
+        cropArea.addEventListener("mousedown", startCrop);
+        document.querySelector("#cropImage").addEventListener("click", cropImage);
+        document.querySelector("#askImage").addEventListener("click", askImage);
+        document.querySelector("#removeImage").addEventListener("click", clearImage);
+      }
+
+      async function initSupabase() {
+        try {
+          const config = await fetch("/api/config").then((r) => r.json());
+          if (!createClient || !config.supabaseUrl || !config.supabaseAnonKey) return;
+          supabaseClient = createClient(config.supabaseUrl, config.supabaseAnonKey, {
+            auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+          });
+          const { data } = await supabaseClient.auth.getSession();
+          await updateSession(data.session);
+          supabaseClient.auth.onAuthStateChange(async (_event, nextSession) => updateSession(nextSession));
+        } catch {
+          authStatus.textContent = "Auth is unavailable right now.";
+        }
+      }
+
+      function showPage(name) {
+        activePage = name;
+        document.querySelectorAll(".page").forEach((page) => page.classList.remove("active"));
+        document.querySelector(`#page-${name}`)?.classList.add("active");
+        document.querySelectorAll("[data-page]").forEach((button) => button.classList.toggle("active", button.dataset.page === name));
+        pageTitleEl.textContent = pages[name];
+        promptEl.placeholder = modePrompts[name] || "Message ResearchMind...";
+        composer.classList.toggle("hidden", name === "settings");
+        if (name === "settings") clearImage();
+        renderMessages();
+      }
+
+      async function sendMessage() {
+        if (imageState.image) {
+          await askImage();
+          return;
+        }
+        const raw = promptEl.value.trim();
+        if (!raw) return;
+        const message = modePrompts[activePage] && !raw.toLowerCase().startsWith(activePage)
+          ? modePrompts[activePage] + raw
+          : raw;
+        const convo = currentConversation();
+        const history = convo.messages.slice(-16);
+        convo.messages.push({ role: "user", content: raw, at: Date.now(), synced: false });
+        updateConversationTitle(convo, raw);
+        promptEl.value = "";
+        const thinking = { role: "assistant", content: "Thinking with Gemini...", at: Date.now(), synced: false };
+        convo.messages.push(thinking);
+        saveConversations();
+        renderAll();
+        try {
+          const response = await fetch("/assistant/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message, history, mode: activePage })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail || `Request failed with status ${response.status}`);
+          thinking.content = data.reply;
+          await syncDomainArtifacts(convo, raw, data.reply);
+        } catch (error) {
+          thinking.content = `I could not reach the assistant: ${error.message}`;
+        }
+        saveConversations();
+        syncConversation(convo);
+        renderAll();
+      }
+
+      async function askImage() {
+        if (!imageState.croppedData) cropImage();
+        if (!imageState.croppedData) return;
+        const question = promptEl.value.trim() || "Explain this image and teach me what is important.";
+        const convo = currentConversation();
+        const history = convo.messages.slice(-16);
+        convo.messages.push({ role: "user", content: `${question}\n[uploaded selected image area]`, at: Date.now(), synced: false });
+        updateConversationTitle(convo, question, "Image question");
+        const thinking = { role: "assistant", content: "Looking at the selected image area with Gemini...", at: Date.now(), synced: false };
+        convo.messages.push(thinking);
+        saveConversations();
+        renderAll();
+        try {
+          const response = await fetch("/assistant/image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message: question,
+              image_data: imageState.croppedData,
+              mime_type: imageState.mime,
+              history
+            })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail || `Request failed with status ${response.status}`);
+          thinking.content = data.reply;
+          await syncDomainArtifacts(convo, question, data.reply, { image: true });
+        } catch (error) {
+          thinking.content = `Image request failed: ${error.message}`;
+        }
+        promptEl.value = "";
+        clearImage();
+        saveConversations();
+        syncConversation(convo);
+        renderAll();
+      }
+
+      function renderAll(scroll = true) {
+        renderHistory();
+        renderDeleteChoices();
+        renderSmartSuggestions();
+        renderMessages(scroll);
+      }
+
+      function renderHistory() {
+        historyEl.innerHTML = "";
+        for (const convo of conversations.slice(0, 24)) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = convo.id === activeId ? "active" : "";
+          button.textContent = convo.title || "New chat";
+          button.addEventListener("click", () => {
+            activeId = convo.id;
+            renderAll();
+          });
+          historyEl.appendChild(button);
+        }
+      }
+
+      function renderMessages(scroll = true) {
+        chatEl.innerHTML = "";
+        chatEl.classList.toggle("hidden", activePage === "settings");
+        if (activePage === "settings") return;
+        const convo = currentConversation();
+        for (const message of convo.messages) {
+          const item = document.createElement("article");
+          item.className = `message ${message.role === "user" ? "user" : "assistant"}`;
+          const role = document.createElement("div");
+          role.className = "role";
+          role.textContent = message.role === "user" ? "You" : "ResearchMind";
+          const bubble = document.createElement("div");
+          bubble.className = "bubble";
+          bubble.innerHTML = formatContent(message.content);
+          item.append(role, bubble);
+          if (message.role === "assistant") {
+            const feedback = document.createElement("div");
+            feedback.className = "actions";
+            const good = document.createElement("button");
+            good.className = "btn";
+            good.type = "button";
+            good.textContent = "Helpful";
+            good.addEventListener("click", () => syncFeedback(5, message.content));
+            const bad = document.createElement("button");
+            bad.className = "btn";
+            bad.type = "button";
+            bad.textContent = "Needs work";
+            bad.addEventListener("click", () => syncFeedback(2, message.content));
+            feedback.append(good, bad);
+            item.appendChild(feedback);
+          }
+          chatEl.appendChild(item);
+        }
+        if (scroll) chatEl.scrollIntoView({ block: "end" });
+      }
+
+      function currentConversation() {
+        return conversations.find((item) => item.id === activeId) || conversations[0];
+      }
+
+      function createConversation() {
+        const id = crypto.randomUUID ? crypto.randomUUID() : `chat-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        conversations.unshift({ id, title: "New chat", titleLocked: false, createdAt: Date.now(), updatedAt: Date.now(), messages: [] });
+        return id;
+      }
+
+      function makeTitle(text) {
+        const stop = new Set(["the", "and", "for", "with", "that", "this", "from", "into", "about", "please", "explain", "teach", "research", "write", "give", "make", "show", "using", "like", "hello", "hi", "hey", "okay", "next", "yes", "yeah"]);
+        const words = String(text)
+          .toLowerCase()
+          .replace(/\[uploaded selected image area\]/g, " ")
+          .replace(/[^a-z0-9+#.\s-]/g, " ")
+          .split(/\s+/)
+          .filter((word) => word.length > 2 && !stop.has(word))
+          .slice(0, 6);
+        if (words.length < 2 && String(text).trim().length < 18) return "New chat";
+        const title = words.length ? words.map(capitalize).join(" ") : String(text).replace(/\s+/g, " ").trim().slice(0, 44);
+        return title || "New chat";
+      }
+
+      function updateConversationTitle(convo, userText) {
+        if (!convo || convo.titleLocked) return;
+        const existingTitle = convo.title || "New chat";
+        const userMessages = convo.messages.filter((message) => message.role === "user");
+        if (existingTitle !== "New chat" && userMessages.length > 1) {
+          convo.titleLocked = true;
+          return;
+        }
+        const source = userMessages.length
+          ? userMessages.map((message) => message.content).join(" ")
+          : userText;
+        const base = makeTitle(source);
+        if (base === "New chat") return;
+        convo.title = uniqueTitle(base, convo.id);
+        convo.titleLocked = true;
+      }
+
+      function uniqueTitle(base, id) {
+        const used = new Set(conversations.filter((item) => item.id !== id).map((item) => item.title));
+        if (!used.has(base)) return base;
+        for (let i = 2; i < 100; i += 1) {
+          const next = `${base} ${i}`;
+          if (!used.has(next)) return next;
+        }
+        return `${base} ${Date.now().toString().slice(-4)}`;
+      }
+
+      function capitalize(value) {
+        return value ? value[0].toUpperCase() + value.slice(1) : value;
+      }
+
+      function loadConversations() {
+        try {
+          const data = JSON.parse(localStorage.getItem(conversationsKey) || "[]");
+          return Array.isArray(data) ? data : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function saveConversations() {
+        const now = Date.now();
+        const convo = currentConversation();
+        if (convo) convo.updatedAt = now;
+        conversations.sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
+        localStorage.setItem(conversationsKey, JSON.stringify(conversations.slice(0, 100)));
+      }
+
+      async function syncConversation(convo) {
+        if (!supabaseClient || !session?.user || !convo) return;
+        try {
+          await supabaseClient.from("conversations").upsert({
+            id: convo.id,
+            user_id: session.user.id,
+            title: convo.title || "New chat",
+            updated_at: new Date(convo.updatedAt || Date.now()).toISOString()
+          });
+
+          const pending = convo.messages.filter((message) => !message.synced && message.content);
+          if (!pending.length) return;
+          const rows = pending.map((message) => ({
+            conversation_id: convo.id,
+            user_id: session.user.id,
+            role: message.role,
+            content: message.content,
+            created_at: new Date(message.at || Date.now()).toISOString()
+          }));
+          const result = await supabaseClient.from("messages").insert(rows);
+          if (!result.error) {
+            pending.forEach((message) => {
+              message.synced = true;
+            });
+            saveConversations();
+          }
+        } catch {
+          authStatus.textContent = "Online chat sync will retry after your next message.";
+        }
+      }
+
+      async function syncDomainArtifacts(convo, userText, assistantText, options = {}) {
+        if (!supabaseClient || !session?.user || !convo) return;
+        const text = `${userText} ${assistantText}`.toLowerCase();
+        const isTutor = /\b(teach|tutor|learn|lesson|explain like)\b/.test(text);
+        const isResearch = /\b(research|resources|sources|websites|course|tutorial)\b/.test(text);
+
+        if (isTutor || options.image) {
+          await syncLearningSession(convo, userText, assistantText, options.image);
+        }
+
+        if (isResearch) {
+          await syncResearchResources(convo, userText, assistantText);
+        }
+
+        updateMemoryStatus();
+      }
+
+      async function syncLearningSession(convo, topic, studyPlan, fromImage = false) {
+        const row = {
+          id: convo.learningSessionId || undefined,
+          user_id: session.user.id,
+          topic: makeTitle(topic),
+          level: "beginner",
+          goal: fromImage ? "Learn from an uploaded image" : "Learn this topic step by step",
+          study_plan: studyPlan.slice(0, 6000)
+        };
+        const result = await supabaseClient.from("learning_sessions").upsert(row).select("id").single();
+        if (!result.error && result.data?.id) {
+          convo.learningSessionId = result.data.id;
+          saveConversations();
+          await syncLearningSteps(result.data.id, studyPlan);
+          await syncUserProgress(result.data.id, null, fromImage ? "reviewed" : "viewed", `Started: ${topic}`);
+        }
+      }
+
+      async function syncLearningSteps(sessionId, studyPlan) {
+        const lines = studyPlan
+          .split("\n")
+          .map((line) => line.replace(/^#+\s*/, "").replace(/^\d+[\).]\s*/, "").trim())
+          .filter((line) => line.length > 8)
+          .slice(0, 5);
+        if (!lines.length) return;
+        const rows = lines.map((line, index) => ({
+          user_id: session.user.id,
+          session_id: sessionId,
+          order_index: index + 1,
+          title: line.slice(0, 90),
+          goal: "Understand this step clearly",
+          task: line.slice(0, 500),
+          is_completed: false
+        }));
+        await supabaseClient.from("learning_steps").upsert(rows, { onConflict: "session_id,order_index" });
+      }
+
+      async function syncUserProgress(sessionId, resourceId, progressType, notes) {
+        if (!sessionId) return;
+        await supabaseClient.from("user_progress").insert({
+          user_id: session.user.id,
+          session_id: sessionId,
+          resource_id: resourceId,
+          progress_type: progressType,
+          notes: notes.slice(0, 500)
+        });
+      }
+
+      async function syncResearchResources(convo, query, reply) {
+        const urls = [...new Set((reply.match(/https?:\/\/[^\s)]+/g) || []).map((url) => url.replace(/[.,;]+$/, "")))].slice(0, 8);
+        if (!urls.length) return;
+
+        let sessionId = convo.learningSessionId;
+        if (!sessionId) {
+          const sessionResult = await supabaseClient.from("learning_sessions").insert({
+            user_id: session.user.id,
+            topic: makeTitle(query),
+            level: "beginner",
+            goal: "Research and collect useful learning resources",
+            study_plan: reply.slice(0, 6000)
+          }).select("id").single();
+          if (!sessionResult.error) {
+            sessionId = sessionResult.data.id;
+            convo.learningSessionId = sessionId;
+            saveConversations();
+          }
+        }
+
+        const jobs = urls.map((url) => ({
+          user_id: session.user.id,
+          session_id: sessionId,
+          source_url: url,
+          status: "completed",
+          started_at: new Date().toISOString(),
+          finished_at: new Date().toISOString()
+        }));
+        await supabaseClient.from("resource_ingestion_jobs").insert(jobs);
+
+        const resources = urls.map((url) => ({
+          user_id: session.user.id,
+          session_id: sessionId,
+          title: titleFromUrl(url),
+          url,
+          resource_type: resourceTypeFromUrl(url),
+          provider: providerFromUrl(url),
+          is_free: true,
+          read_status: "snippet_only",
+          quality_score: 7.5,
+          summary: query.slice(0, 500),
+          why_useful: "Saved from a ResearchMind research answer.",
+          raw_excerpt: reply.slice(0, 1000)
+        }));
+        const resourceResult = await supabaseClient.from("learning_resources").insert(resources).select("id");
+        for (const resource of resourceResult.data || []) {
+          await syncUserProgress(sessionId, resource.id, "viewed", `Saved from research: ${query}`);
+        }
+      }
+
+      async function syncTrainingRun(runName, datasetPath) {
+        if (!supabaseClient || !session?.user) return;
+        const runResult = await supabaseClient.from("model_training_runs").insert({
+          user_id: session.user.id,
+          run_name: runName,
+          base_model: "researchmind-slm",
+          dataset_path: datasetPath,
+          status: "preparing_data",
+          metrics: {
+            source: "website_chat_export",
+            conversations: conversations.length,
+            messages: conversations.reduce((total, convo) => total + convo.messages.length, 0)
+          }
+        }).select("id").single();
+        if (!runResult.error && runResult.data?.id) {
+          await supabaseClient.from("model_checkpoints").insert({
+            training_run_id: runResult.data.id,
+            checkpoint_path: "pending-local-training",
+            tokenizer_path: "model/checkpoints/tokenizer.json",
+            model_config: { source: "website_export", local_model: "researchmind-slm" },
+            eval_metrics: {},
+            is_active: false
+          });
+        }
+        updateMemoryStatus();
+      }
+
+      async function syncFeedback(rating, text) {
+        if (!supabaseClient || !session?.user) return;
+        await supabaseClient.from("feedback_events").insert({
+          user_id: session.user.id,
+          rating,
+          feedback: text.slice(0, 1000)
+        });
+        updateMemoryStatus();
+      }
+
+      async function loadCloudConversations() {
+        if (!supabaseClient || !session?.user) return;
+        const convoResult = await supabaseClient
+          .from("conversations")
+          .select("id,title,created_at,updated_at")
+          .order("updated_at", { ascending: false })
+          .limit(50);
+        if (convoResult.error || !convoResult.data?.length) return;
+
+        const ids = convoResult.data.map((item) => item.id);
+        const messageResult = await supabaseClient
+          .from("messages")
+          .select("conversation_id,role,content,created_at")
+          .in("conversation_id", ids)
+          .order("created_at", { ascending: true });
+        const messagesByConversation = new Map();
+        for (const message of messageResult.data || []) {
+          const list = messagesByConversation.get(message.conversation_id) || [];
+          list.push({
+            role: message.role,
+            content: message.content,
+            at: Date.parse(message.created_at),
+            synced: true
+          });
+          messagesByConversation.set(message.conversation_id, list);
+        }
+
+        for (const cloudConvo of convoResult.data) {
+          const local = conversations.find((item) => item.id === cloudConvo.id);
+          const next = {
+            id: cloudConvo.id,
+            title: cloudConvo.title || "New chat",
+            titleLocked: cloudConvo.title !== "New chat",
+            createdAt: Date.parse(cloudConvo.created_at),
+            updatedAt: Date.parse(cloudConvo.updated_at),
+            messages: messagesByConversation.get(cloudConvo.id) || []
+          };
+          if (local) Object.assign(local, { ...next, messages: local.messages.length ? local.messages : next.messages });
+          else conversations.push(next);
+        }
+        saveConversations();
+        renderAll(false);
+      }
+
+      async function updateMemoryStatus() {
+        if (!memoryStatus || !supabaseClient || !session?.user) return;
+        const tables = [
+          ["conversations", "chats"],
+          ["messages", "messages"],
+          ["learning_sessions", "tutor sessions"],
+          ["learning_steps", "learning steps"],
+          ["learning_resources", "resources"],
+          ["resource_ingestion_jobs", "research jobs"],
+          ["user_progress", "progress rows"],
+          ["model_training_runs", "training runs"],
+          ["model_checkpoints", "checkpoints"],
+          ["feedback_events", "feedback events"]
+        ];
+        const counts = [];
+        for (const [table, label] of tables) {
+          const result = await supabaseClient.from(table).select("id", { count: "exact", head: true });
+          if (!result.error) counts.push(`${result.count || 0} ${label}`);
+        }
+        memoryStatus.textContent = counts.length
+          ? `Synced online: ${counts.join(", ")}.`
+          : "Online memory is connected, but no rows were found yet.";
+      }
+
+      function titleFromUrl(url) {
+        try {
+          const parsed = new URL(url);
+          return parsed.hostname.replace(/^www\./, "") + parsed.pathname.split("/").filter(Boolean).slice(0, 2).join(" ");
+        } catch {
+          return url.slice(0, 80);
+        }
+      }
+
+      function providerFromUrl(url) {
+        try {
+          return new URL(url).hostname.replace(/^www\./, "");
+        } catch {
+          return "";
+        }
+      }
+
+      function resourceTypeFromUrl(url) {
+        const lowered = url.toLowerCase();
+        if (lowered.includes("youtube.com") || lowered.includes("youtu.be")) return "video";
+        if (lowered.includes("github.com")) return "repo";
+        if (lowered.endsWith(".pdf")) return "document";
+        if (lowered.includes("course") || lowered.includes("learn")) return "course";
+        return "page";
+      }
+
+      function renderDeleteChoices() {
+        if (!deleteChatSelect) return;
+        deleteChatSelect.innerHTML = "";
+        for (const convo of conversations) {
+          const option = document.createElement("option");
+          option.value = convo.id;
+          option.textContent = convo.title || "New chat";
+          deleteChatSelect.appendChild(option);
+        }
+        deleteChatSelect.value = activeId;
+      }
+
+      function renderSmartSuggestions() {
+        if (!smartSuggestions) return;
+        smartSuggestions.innerHTML = "";
+        const suggestions = buildSuggestions();
+        for (const suggestion of suggestions) {
+          const button = document.createElement("button");
+          button.className = "chip";
+          button.type = "button";
+          button.textContent = suggestion;
+          button.addEventListener("click", () => {
+            promptEl.value = suggestion;
+            promptEl.focus();
+          });
+          smartSuggestions.appendChild(button);
+        }
+      }
+
+      function buildSuggestions() {
+        const recentUserMessages = conversations
+          .flatMap((convo) => convo.messages.filter((message) => message.role === "user").map((message) => message.content))
+          .slice(-24);
+        const text = recentUserMessages.join(" ").toLowerCase();
+        const suggestions = [];
+        if (text.includes("python") || text.includes("code")) suggestions.push("Continue teaching me with a small coding example");
+        if (text.includes("research") || text.includes("resource")) suggestions.push("Research updated beginner resources with links");
+        if (text.includes("project") || text.includes("website")) suggestions.push("Plan the next feature for this project");
+        if (text.includes("image") || text.includes("upload")) suggestions.push("Explain the uploaded image step by step");
+        suggestions.push("Summarize what we have worked on so far");
+        return [...new Set(suggestions)].slice(0, 4);
+      }
+
+      async function signIn(createAccount) {
+        if (!supabaseClient) return authStatus.textContent = "Auth is not ready.";
+        const email = document.querySelector("#email").value.trim();
+        const password = document.querySelector("#password").value;
+        if (!email || !password) return authStatus.textContent = "Enter email and password.";
+        const result = createAccount
+          ? await supabaseClient.auth.signUp({ email, password })
+          : await supabaseClient.auth.signInWithPassword({ email, password });
+        if (result.error) return authStatus.textContent = result.error.message;
+        updateSession(result.data.session);
+        authStatus.textContent = "Signed in successfully.";
+      }
+
+      async function signOut() {
+        if (supabaseClient) await supabaseClient.auth.signOut();
+        updateSession(null);
+        authStatus.textContent = "Signed out.";
+      }
+
+      async function updateSession(nextSession) {
+        session = nextSession;
+        sessionLabel.textContent = session?.user?.email || "Not signed in";
+        const signedIn = !!session?.user;
+        signedOutAuth.classList.toggle("hidden", signedIn);
+        signInButton.classList.toggle("hidden", signedIn);
+        signUpButton.classList.toggle("hidden", signedIn);
+        signOutButton.classList.toggle("hidden", !signedIn);
+        authStatus.textContent = signedIn
+          ? `Signed in as ${session.user.email}.`
+          : "Sign in to save and continue protected workflows later.";
+        if (session?.user) {
+          await loadCloudConversations();
+          await updateMemoryStatus();
+        } else if (memoryStatus) {
+          memoryStatus.textContent = "Sign in to sync chats, tutor sessions, research resources, and training runs.";
+        }
+      }
+
+      async function deleteHistory() {
+        const value = document.querySelector("#deleteAge").value;
+        const before = [...conversations];
+        if (value === "all") {
+          conversations = [];
+        } else {
+          const cutoff = Date.now() - Number(value) * 24 * 60 * 60 * 1000;
+          conversations = conversations.filter((item) => (item.updatedAt || item.createdAt) >= cutoff);
+        }
+        const removedIds = before.filter((item) => !conversations.some((next) => next.id === item.id)).map((item) => item.id);
+        if (supabaseClient && session?.user && removedIds.length) {
+          await supabaseClient.from("conversations").delete().in("id", removedIds);
+        }
+        if (!conversations.length) activeId = createConversation();
+        else activeId = conversations[0].id;
+        saveConversations();
+        renderAll();
+      }
+
+      async function deleteSelectedChat() {
+        const id = deleteChatSelect.value;
+        conversations = conversations.filter((item) => item.id !== id);
+        if (supabaseClient && session?.user && id) {
+          await supabaseClient.from("conversations").delete().eq("id", id);
+        }
+        if (!conversations.length) activeId = createConversation();
+        else activeId = conversations[0].id;
+        saveConversations();
+        renderAll();
+      }
+
+      async function exportTrainingData() {
+        const filename = `researchmind-training-${new Date().toISOString().slice(0, 10)}.json`;
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          app: "ResearchMind",
+          conversations
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+        await syncTrainingRun(`Website export ${new Date().toLocaleString()}`, filename);
+      }
+
+      function loadImage(event) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        imageState.mime = file.type || "image/png";
+        const image = new Image();
+        image.onload = () => {
+          imageState.image = image;
+          canvas.width = image.naturalWidth;
+          canvas.height = image.naturalHeight;
+          canvas.getContext("2d").drawImage(image, 0, 0);
+          imageState.crop = { x: 0, y: 0, w: canvas.width, h: canvas.height };
+          cropBox.style.display = "none";
+          cropPreview.removeAttribute("src");
+          attachmentPanel.classList.add("active");
+          showPage("chat");
+          promptEl.placeholder = "Ask about this image...";
+        };
+        image.src = URL.createObjectURL(file);
+      }
+
+      function clearImage() {
+        imageState = { image: null, crop: null, croppedData: null, mime: "image/png" };
+        imageInput.value = "";
+        cropBox.style.display = "none";
+        cropPreview.removeAttribute("src");
+        canvas.width = 0;
+        canvas.height = 0;
+        attachmentPanel.classList.remove("active");
+        promptEl.placeholder = modePrompts[activePage] || "Message ResearchMind...";
+      }
+
+      function startCrop(event) {
+        if (!imageState.image) return;
+        const rect = cropArea.getBoundingClientRect();
+        const startX = event.clientX - rect.left;
+        const startY = event.clientY - rect.top;
+        cropBox.style.display = "block";
+        const move = (moveEvent) => {
+          const endX = moveEvent.clientX - rect.left;
+          const endY = moveEvent.clientY - rect.top;
+          const x = Math.min(startX, endX);
+          const y = Math.min(startY, endY);
+          const w = Math.abs(endX - startX);
+          const h = Math.abs(endY - startY);
+          Object.assign(cropBox.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px` });
+          const scaleX = canvas.width / rect.width;
+          const scaleY = canvas.height / rect.height;
+          imageState.crop = { x: x * scaleX, y: y * scaleY, w: w * scaleX, h: h * scaleY };
+        };
+        const up = () => {
+          window.removeEventListener("mousemove", move);
+          window.removeEventListener("mouseup", up);
+        };
+        window.addEventListener("mousemove", move);
+        window.addEventListener("mouseup", up);
+      }
+
+      function cropImage() {
+        if (!imageState.image || !imageState.crop) return;
+        const { x, y, w, h } = imageState.crop;
+        if (w < 4 || h < 4) return;
+        const output = document.createElement("canvas");
+        output.width = Math.round(w);
+        output.height = Math.round(h);
+        output.getContext("2d").drawImage(canvas, x, y, w, h, 0, 0, w, h);
+        imageState.croppedData = output.toDataURL(imageState.mime || "image/png");
+        cropPreview.src = imageState.croppedData;
+      }
+
+      function startVoiceInput() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) return promptEl.value = "Voice input is not supported in this browser.";
+        const recognition = new SpeechRecognition();
+        recognition.lang = "en-IN";
+        recognition.interimResults = false;
+        recognition.addEventListener("result", (event) => {
+          promptEl.value = event.results[0][0].transcript;
+          promptEl.focus();
+        });
+        recognition.start();
+      }
+
+      function formatContent(value) {
+        const escaped = escapeHtml(value);
+        const blocks = escaped.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+        return blocks.map((block) => {
+          if (block.startsWith("### ")) return `<h3>${inlineFormat(block.slice(4))}</h3>`;
+          if (block.startsWith("## ")) return `<h3>${inlineFormat(block.slice(3))}</h3>`;
+          if (block.startsWith("# ")) return `<h3>${inlineFormat(block.slice(2))}</h3>`;
+          return `<p>${inlineFormat(block).replace(/\n/g, "<br>")}</p>`;
+        }).join("");
+      }
+
+      function inlineFormat(value) {
+        return value.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`(.+?)`/g, "<code>$1</code>");
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;"
+        })[char]);
+      }
+    </script>
+  </body>
+</html>
