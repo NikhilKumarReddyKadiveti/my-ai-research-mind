@@ -1,8 +1,9 @@
-import requests
-from bs4 import BeautifulSoup
 import json
 import re
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, unquote, urlparse
+
+import requests
+from bs4 import BeautifulSoup
 
 class ResearchAgent:
     """
@@ -52,6 +53,7 @@ class ResearchAgent:
         query = self._normalize_learning_query(query)
         print(f"Searching for: {query}")
         results = []
+        relaxed_results = []
         try:
             if self.ddgs is None:
                 from duckduckgo_search import DDGS
@@ -63,20 +65,28 @@ class ResearchAgent:
             ddg_results = self.ddgs.text(query, max_results=max(self.max_results, 8))
             for r in ddg_results:
                 result = {
-                    "title": r['title'],
-                    "link": r['href'],
-                    "snippet": r['body']
+                    "title": self._clean_text(r.get('title', 'Untitled result')),
+                    "link": self._clean_url(r.get('href', '')),
+                    "snippet": self._clean_text(r.get('body', ''))
                 }
                 if self._is_relevant_result(query, result):
                     results.append(result)
+                elif self._is_usable_learning_result(result):
+                    relaxed_results.append(result)
                 if len(results) >= self.max_results:
                     break
         except Exception as e:
             print(f"Error during search: {e}")
         if not results:
             results = self._search_duckduckgo_html(query)
+        if not results and relaxed_results:
+            results = relaxed_results
         if not results:
             results = self._curated_learning_results(query)
+        if len(results) < self.max_results:
+            results = self._fill_with_generic_results(query, results)
+        if not results:
+            results = self._generic_learning_results(query)
         return results[: self.max_results]
 
     def _search_duckduckgo_html(self, query):
@@ -102,10 +112,12 @@ class ResearchAgent:
                     continue
                 result = {
                     "title": link.get_text(" ", strip=True),
-                    "link": link.get("href", ""),
+                    "link": self._clean_url(link.get("href", "")),
                     "snippet": snippet.get_text(" ", strip=True) if snippet else "",
                 }
                 if self._is_relevant_result(query, result):
+                    results.append(result)
+                elif self._is_usable_learning_result(result):
                     results.append(result)
                 if len(results) >= self.max_results:
                     break
@@ -129,9 +141,28 @@ class ResearchAgent:
         )
         clean = re.sub(r"\s+", " ", clean).strip(" .,:;-")
         lowered = clean.lower()
-        if any(word in lowered for word in ["learn", "tutorial", "course", "resource", "beginner"]):
-            return f"{clean} free course tutorial beginner educational"
-        return f"{clean} free learning resources tutorial course beginner educational"
+        level = "advanced" if "advanced" in lowered else "beginner"
+        if any(word in lowered for word in ["learn", "tutorial", "course", "resource", "beginner", "advanced"]):
+            return f"{clean} free course tutorial {level} educational"
+        return f"{clean} free learning resources tutorial course {level} educational"
+
+    def _clean_text(self, value):
+        return " ".join(str(value or "").split())
+
+    def _clean_url(self, url):
+        url = str(url or "").strip()
+        if not url:
+            return ""
+        parsed = urlparse(url)
+        if "duckduckgo.com" in parsed.netloc and parsed.query:
+            params = parse_qs(parsed.query)
+            if params.get("uddg"):
+                return unquote(params["uddg"][0])
+        if url.startswith("//duckduckgo.com/l/?"):
+            params = parse_qs(urlparse("https:" + url).query)
+            if params.get("uddg"):
+                return unquote(params["uddg"][0])
+        return url
 
     def _is_relevant_result(self, query, result):
         title = result.get("title", "")
@@ -158,6 +189,19 @@ class ResearchAgent:
         trusted_learning_site = any(host == domain or host.endswith(f".{domain}") for domain in self.learning_domains)
         return has_topic_match and (has_learning_signal or trusted_learning_site)
 
+    def _is_usable_learning_result(self, result):
+        url = result.get("link", "")
+        host = urlparse(url).netloc.lower().removeprefix("www.")
+        text = f"{result.get('title', '')} {result.get('snippet', '')} {url}".lower()
+        if not host or any(host == domain or host.endswith(f".{domain}") for domain in self.blocked_domains):
+            return False
+        junk_words = ["casino", "betting", "apk", "play now", "download game"]
+        if any(word in text for word in junk_words):
+            return False
+        learning_words = ["learn", "course", "tutorial", "guide", "docs", "documentation", "training", "education", "lesson"]
+        trusted_learning_site = any(host == domain or host.endswith(f".{domain}") for domain in self.learning_domains)
+        return trusted_learning_site or any(word in text for word in learning_words)
+
     def _curated_learning_results(self, query):
         text = query.lower()
         if "python" in text and ("data science" in text or "data" in text):
@@ -178,6 +222,112 @@ class ResearchAgent:
                     "title": "freeCodeCamp: Data Analysis with Python",
                     "link": "https://www.freecodecamp.org/learn/data-analysis-with-python/",
                     "snippet": "Free structured course with projects for Python data analysis.",
+                    "curated": True,
+                },
+            ]
+
+        if "python" in text:
+            return [
+                {
+                    "title": "Python Official Tutorial",
+                    "link": "https://docs.python.org/3/tutorial/",
+                    "snippet": "The official Python tutorial, useful for moving from basics into deeper language features.",
+                    "curated": True,
+                },
+                {
+                    "title": "Real Python Tutorials",
+                    "link": "https://realpython.com/",
+                    "snippet": "Practical Python tutorials covering intermediate and advanced topics.",
+                    "curated": True,
+                },
+                {
+                    "title": "freeCodeCamp Python Courses",
+                    "link": "https://www.freecodecamp.org/news/tag/python/",
+                    "snippet": "Free Python articles and courses with projects and examples.",
+                    "curated": True,
+                },
+                {
+                    "title": "Exercism Python Track",
+                    "link": "https://exercism.org/tracks/python",
+                    "snippet": "Free Python practice exercises with mentoring-style feedback.",
+                    "curated": True,
+                },
+                {
+                    "title": "Automate the Boring Stuff with Python",
+                    "link": "https://automatetheboringstuff.com/",
+                    "snippet": "Free practical Python book focused on useful real-world automation.",
+                    "curated": True,
+                },
+            ]
+
+        if any(word in text for word in ["web development", "html", "css", "javascript", "frontend", "front end"]):
+            return [
+                {
+                    "title": "freeCodeCamp Responsive Web Design",
+                    "link": "https://www.freecodecamp.org/learn/2022/responsive-web-design/",
+                    "snippet": "Free hands-on HTML and CSS curriculum for beginners.",
+                    "curated": True,
+                },
+                {
+                    "title": "MDN Learn Web Development",
+                    "link": "https://developer.mozilla.org/en-US/docs/Learn",
+                    "snippet": "High-quality web development guides from Mozilla, covering HTML, CSS, JavaScript, and web standards.",
+                    "curated": True,
+                },
+                {
+                    "title": "The Odin Project",
+                    "link": "https://www.theodinproject.com/",
+                    "snippet": "Free full-stack web development curriculum with projects.",
+                    "curated": True,
+                },
+                {
+                    "title": "JavaScript.info",
+                    "link": "https://javascript.info/",
+                    "snippet": "Detailed modern JavaScript tutorial from fundamentals to advanced concepts.",
+                    "curated": True,
+                },
+                {
+                    "title": "web.dev Learn",
+                    "link": "https://web.dev/learn",
+                    "snippet": "Google's free learning paths for modern web development.",
+                    "curated": True,
+                },
+            ]
+
+        if "react" in text:
+            return [
+                {
+                    "title": "React Official Learn",
+                    "link": "https://react.dev/learn",
+                    "snippet": "Official React learning path with modern examples.",
+                    "curated": True,
+                },
+                {
+                    "title": "Scrimba Learn React",
+                    "link": "https://scrimba.com/learn-react-c0e",
+                    "snippet": "Interactive React course with code-along lessons.",
+                    "curated": True,
+                },
+                {
+                    "title": "freeCodeCamp React Articles",
+                    "link": "https://www.freecodecamp.org/news/tag/react/",
+                    "snippet": "Free React tutorials and project guides.",
+                    "curated": True,
+                },
+            ]
+
+        if "fastapi" in text or "api" in text:
+            return [
+                {
+                    "title": "FastAPI Tutorial",
+                    "link": "https://fastapi.tiangolo.com/tutorial/",
+                    "snippet": "Official FastAPI tutorial with practical API examples.",
+                    "curated": True,
+                },
+                {
+                    "title": "Real Python FastAPI",
+                    "link": "https://realpython.com/fastapi-python-web-apis/",
+                    "snippet": "Beginner-friendly guide to building APIs with FastAPI.",
                     "curated": True,
                 },
             ]
@@ -217,6 +367,51 @@ class ResearchAgent:
             ]
 
         return []
+
+    def _generic_learning_results(self, query):
+        return [
+            {
+                "title": "Khan Academy Computing",
+                "link": "https://www.khanacademy.org/computing",
+                "snippet": f"Free computing lessons that may help with: {query}",
+                "curated": True,
+            },
+            {
+                "title": "freeCodeCamp Learn",
+                "link": "https://www.freecodecamp.org/learn/",
+                "snippet": "Free structured courses for programming, web development, data, and AI basics.",
+                "curated": True,
+            },
+            {
+                "title": "Coursera Free Courses",
+                "link": "https://www.coursera.org/courses?query=free",
+                "snippet": "Searchable collection of free-to-audit learning resources.",
+                "curated": True,
+            },
+            {
+                "title": "edX Free Online Courses",
+                "link": "https://www.edx.org/learn",
+                "snippet": "University-backed learning catalog with free audit options.",
+                "curated": True,
+            },
+            {
+                "title": "MIT OpenCourseWare",
+                "link": "https://ocw.mit.edu/",
+                "snippet": "Free university course material for computer science, math, engineering, and more.",
+                "curated": True,
+            },
+        ]
+
+    def _fill_with_generic_results(self, query, results):
+        seen = {item.get("link") for item in results}
+        filled = list(results)
+        for item in self._generic_learning_results(query):
+            if item.get("link") not in seen:
+                filled.append(item)
+                seen.add(item.get("link"))
+            if len(filled) >= self.max_results:
+                break
+        return filled
 
     def scrape(self, url):
         """Extract text content from a webpage."""
