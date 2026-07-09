@@ -509,7 +509,7 @@
               </select>
               <label for="userApiKey">Personal API key</label>
               <input id="userApiKey" type="password" autocomplete="off" placeholder="Paste Gemini or OpenAI key" />
-              <p class="sub">Stored only in this browser. It is sent to the backend for AI requests, but not saved in chat history.</p>
+              <p class="sub">Signed-in users sync an encrypted key across devices. Signed-out users store it only in this browser.</p>
               <div class="row">
                 <button class="btn primary" id="saveApiKey" type="button">Save API key</button>
                 <button class="btn" id="clearApiKey" type="button">Use app default</button>
@@ -605,6 +605,7 @@
       let activePage = "chat";
       let supabaseClient = null;
       let session = null;
+      let syncedApiKey = { provider: null, has_key: false, key_hint: null };
       let imageState = { image: null, crop: null, croppedData: null, mime: "image/png" };
 
       init();
@@ -681,38 +682,83 @@
 
       function renderApiKeySettings() {
         const settings = loadApiKeySettings();
-        aiProviderEl.value = settings.provider || "auto";
-        userApiKeyEl.value = settings.apiKey || "";
-        const hasKey = Boolean((settings.apiKey || "").trim());
-        const label = settings.provider === "openai" ? "OpenAI" : settings.provider === "gemini" ? "Gemini" : "auto-detected";
-        apiKeyStatus.textContent = hasKey
-          ? `Using your personal ${label} key for AI requests in this browser.`
-          : "Using app default AI.";
+        const provider = syncedApiKey.has_key ? syncedApiKey.provider : settings.provider;
+        aiProviderEl.value = provider || "auto";
+        userApiKeyEl.value = session?.user ? "" : (settings.apiKey || "");
+        const hasLocalKey = Boolean((settings.apiKey || "").trim());
+        const hasSyncedKey = Boolean(syncedApiKey.has_key);
+        const label = provider === "openai" ? "OpenAI" : provider === "gemini" ? "Gemini" : "auto-detected";
+        if (hasSyncedKey) {
+          apiKeyStatus.textContent = `Using your synced ${label} key on this account (${syncedApiKey.key_hint || "saved"}).`;
+        } else if (hasLocalKey) {
+          apiKeyStatus.textContent = `Using your personal ${label} key only in this browser. Sign in and save to sync across devices.`;
+        } else {
+          apiKeyStatus.textContent = session?.user
+            ? "Using app default AI. Add a key here to sync it across your devices."
+            : "Using app default AI. Sign in to sync a personal key across devices.";
+        }
       }
 
-      function saveApiKeySettings() {
+      async function saveApiKeySettings() {
         const apiKey = userApiKeyEl.value.trim();
         const provider = aiProviderEl.value || "auto";
         if (!apiKey) {
           clearApiKeySettings();
           return;
         }
+        if (session?.access_token) {
+          try {
+            const response = await fetch("/user-api-key", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json", ...authHeaders() },
+              body: JSON.stringify({ provider, api_key: apiKey })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || "Could not save synced key.");
+            syncedApiKey = data;
+            localStorage.removeItem(apiKeySettingsKey);
+            renderApiKeySettings();
+            return;
+          } catch (error) {
+            apiKeyStatus.textContent = error.message;
+            return;
+          }
+        }
         localStorage.setItem(apiKeySettingsKey, JSON.stringify({ provider, apiKey }));
         renderApiKeySettings();
       }
 
-      function clearApiKeySettings() {
+      async function clearApiKeySettings() {
+        if (session?.access_token && syncedApiKey.has_key) {
+          try {
+            const response = await fetch("/user-api-key", {
+              method: "DELETE",
+              headers: authHeaders()
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || "Could not delete synced key.");
+            syncedApiKey = data;
+          } catch (error) {
+            apiKeyStatus.textContent = error.message;
+            return;
+          }
+        }
         localStorage.removeItem(apiKeySettingsKey);
         renderApiKeySettings();
       }
 
       function aiRequestSettings() {
+        if (session?.access_token && syncedApiKey.has_key) return {};
         const settings = loadApiKeySettings();
         if (!(settings.apiKey || "").trim()) return {};
         return {
           provider: settings.provider || "auto",
           api_key: settings.apiKey.trim()
         };
+      }
+
+      function authHeaders() {
+        return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
       }
 
       function showPage(name) {
@@ -749,7 +795,7 @@
         try {
           const response = await fetch("/assistant/chat", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...authHeaders() },
             body: JSON.stringify({ message, history, mode: activePage, ...aiRequestSettings() })
           });
           const data = await response.json();
@@ -779,7 +825,7 @@
         try {
           const response = await fetch("/assistant/image", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...authHeaders() },
             body: JSON.stringify({
               message: question,
               image_data: imageState.croppedData,
@@ -1283,10 +1329,26 @@
           ? `Signed in as ${session.user.email}.`
           : "Sign in to save and continue protected workflows later.";
         if (session?.user) {
+          await loadSyncedApiKeySettings();
           await loadCloudConversations();
           await updateMemoryStatus();
         } else if (memoryStatus) {
+          syncedApiKey = { provider: null, has_key: false, key_hint: null };
+          renderApiKeySettings();
           memoryStatus.textContent = "Sign in to sync chats, tutor sessions, research resources, and training runs.";
+        }
+      }
+
+      async function loadSyncedApiKeySettings() {
+        if (!session?.access_token) return;
+        try {
+          const response = await fetch("/user-api-key", { headers: authHeaders() });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail || "Could not load synced API key settings.");
+          syncedApiKey = data;
+          renderApiKeySettings();
+        } catch (error) {
+          apiKeyStatus.textContent = error.message;
         }
       }
 

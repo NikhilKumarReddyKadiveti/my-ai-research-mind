@@ -37,6 +37,15 @@ create table if not exists public.user_security_settings (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.user_api_keys (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  provider text not null default 'auto' check (provider in ('auto', 'gemini', 'openai')),
+  encrypted_api_key text not null,
+  key_hint text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -60,6 +69,11 @@ for each row execute function public.set_updated_at();
 drop trigger if exists user_security_settings_set_updated_at on public.user_security_settings;
 create trigger user_security_settings_set_updated_at
 before update on public.user_security_settings
+for each row execute function public.set_updated_at();
+
+drop trigger if exists user_api_keys_set_updated_at on public.user_api_keys;
+create trigger user_api_keys_set_updated_at
+before update on public.user_api_keys
 for each row execute function public.set_updated_at();
 
 create or replace function public.handle_new_user()
@@ -95,6 +109,7 @@ alter table public.profiles enable row level security;
 alter table public.conversations enable row level security;
 alter table public.messages enable row level security;
 alter table public.user_security_settings enable row level security;
+alter table public.user_api_keys enable row level security;
 
 drop policy if exists "Users can read own profile" on public.profiles;
 create policy "Users can read own profile"
@@ -177,6 +192,31 @@ create policy "Users can create own security settings"
 on public.user_security_settings for insert
 to authenticated
 with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can read own encrypted api key settings" on public.user_api_keys;
+create policy "Users can read own encrypted api key settings"
+on public.user_api_keys for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can create own encrypted api key settings" on public.user_api_keys;
+create policy "Users can create own encrypted api key settings"
+on public.user_api_keys for insert
+to authenticated
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can update own encrypted api key settings" on public.user_api_keys;
+create policy "Users can update own encrypted api key settings"
+on public.user_api_keys for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can delete own encrypted api key settings" on public.user_api_keys;
+create policy "Users can delete own encrypted api key settings"
+on public.user_api_keys for delete
+to authenticated
+using ((select auth.uid()) = user_id);
 
 create index if not exists conversations_user_id_created_at_idx
 on public.conversations (user_id, created_at desc);

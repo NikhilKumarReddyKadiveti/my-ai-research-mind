@@ -1,5 +1,6 @@
 beautifulsoup4
 chromadb
+cryptography
 duckduckgo-search
 fastapi
 httpx

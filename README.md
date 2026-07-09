@@ -77,11 +77,19 @@ Users can open `Settings -> AI Provider` and choose:
 - `Gemini`
 - `OpenAI`
 
-If the user saves a personal key, the website sends that key with AI requests to the backend. If they clear it or leave it empty, the backend uses the app's configured default AI path:
+If the user is signed in, the website saves the personal key through the backend as encrypted text in Supabase, then future devices can use it after login. The raw key is not returned to the browser after saving.
+
+If the user is signed out, the key is stored only in that browser. If they clear it or leave it empty, the backend uses the app's configured default AI path:
 
 1. Gemini when `GEMINI_API_KEY` is configured.
 2. Ollama/local model when available.
 3. Simple local fallback.
+
+For existing Supabase projects, run this patch before using synced personal keys:
+
+```text
+supabase/schema_part_4_user_api_keys.sql
+```
 
 ## Supabase SQL
 
@@ -135,6 +143,7 @@ Required `backend/.env` values:
 
 ```bash
 AI_PROVIDER=auto
+API_KEY_ENCRYPTION_SECRET=replace_with_a_long_random_secret_for_synced_user_keys
 GEMINI_API_KEY=your_rotated_gemini_key
 GEMINI_MODEL=gemini-2.5-flash
 OPENAI_API_KEY=your_rotated_openai_key_optional

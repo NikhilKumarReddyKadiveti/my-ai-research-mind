@@ -3,7 +3,9 @@ import re
 import sys
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException
+from typing import Optional
+
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -15,6 +17,8 @@ from app.schemas.research import (
     AIChatRequest,
     AIChatResponse,
     AIImageChatRequest,
+    UserApiKeyRequest,
+    UserApiKeyResponse,
     TutorResearchRequest,
     TutorResearchResponse,
     ResearchQuery,
@@ -33,6 +37,12 @@ from agent.safety_policy import SafetyPolicy
 from agent.action_agent import ActionAgent
 from app.services.ai_service import get_ai_service
 from app.services.supabase_auth import AuthUser, require_user
+from app.services.api_key_store import (
+    delete_user_api_key,
+    get_decrypted_user_api_key,
+    get_user_api_key_row,
+    upsert_user_api_key,
+)
 import datetime
 import httpx
 
@@ -139,8 +149,48 @@ def public_config():
 async def read_me(user: AuthUser = Depends(require_user)):
     return {"id": user.id, "email": user.email}
 
+async def optional_user(authorization: Optional[str]) -> Optional[AuthUser]:
+    if not authorization:
+        return None
+    try:
+        return await require_user(authorization)
+    except HTTPException:
+        return None
+
+async def request_ai_credentials(request_provider: Optional[str], request_api_key: Optional[str], user: Optional[AuthUser]):
+    if request_api_key:
+        return request_provider, request_api_key
+    return await get_decrypted_user_api_key(user)
+
+@app.get("/user-api-key", response_model=UserApiKeyResponse)
+async def read_user_api_key(user: AuthUser = Depends(require_user)):
+    row = await get_user_api_key_row(user)
+    if not row:
+        return {"provider": None, "has_key": False, "key_hint": None, "updated_at": None}
+    return {
+        "provider": row.get("provider"),
+        "has_key": True,
+        "key_hint": row.get("key_hint"),
+        "updated_at": row.get("updated_at"),
+    }
+
+@app.put("/user-api-key", response_model=UserApiKeyResponse)
+async def save_user_api_key(request: UserApiKeyRequest, user: AuthUser = Depends(require_user)):
+    row = await upsert_user_api_key(user, request.provider, request.api_key)
+    return {
+        "provider": row.get("provider"),
+        "has_key": True,
+        "key_hint": row.get("key_hint"),
+        "updated_at": row.get("updated_at"),
+    }
+
+@app.delete("/user-api-key", response_model=UserApiKeyResponse)
+async def remove_user_api_key(user: AuthUser = Depends(require_user)):
+    await delete_user_api_key(user)
+    return {"provider": None, "has_key": False, "key_hint": None, "updated_at": None}
+
 @app.post("/assistant/chat", response_model=AIChatResponse)
-async def assistant_chat(request: AIChatRequest):
+async def assistant_chat(request: AIChatRequest, authorization: Optional[str] = Header(default=None)):
     if not safety_policy.is_safe(request.message):
         raise HTTPException(status_code=400, detail=safety_policy.get_refusal_message())
 
@@ -148,6 +198,8 @@ async def assistant_chat(request: AIChatRequest):
     lowered = message.lower()
     mode = (request.mode or "chat").lower()
     history = [item.model_dump() for item in request.history][-16:]
+    user = await optional_user(authorization)
+    provider, api_key = await request_ai_credentials(request.provider, request.api_key, user)
 
     wants_research = (
         mode == "research"
@@ -166,8 +218,8 @@ async def assistant_chat(request: AIChatRequest):
         summary = get_ai_service().research_summary(
             message,
             report["sources"],
-            provider=request.provider,
-            api_key=request.api_key,
+            provider=provider,
+            api_key=api_key,
         )
         links = "\n".join(
             f"{index + 1}. {source['title']}\n   {source['url']}"
@@ -180,31 +232,33 @@ async def assistant_chat(request: AIChatRequest):
             message,
             "beginner",
             history=history,
-            provider=request.provider,
-            api_key=request.api_key,
+            provider=provider,
+            api_key=api_key,
         )
         return {"reply": reply, "success": True}
 
     reply = get_ai_service().chat(
         message,
         history=history,
-        provider=request.provider,
-        api_key=request.api_key,
+        provider=provider,
+        api_key=api_key,
     )
     return {"reply": reply, "success": True}
 
 @app.post("/assistant/image", response_model=AIChatResponse)
-async def assistant_image_chat(request: AIImageChatRequest):
+async def assistant_image_chat(request: AIImageChatRequest, authorization: Optional[str] = Header(default=None)):
     if not safety_policy.is_safe(request.message):
         raise HTTPException(status_code=400, detail=safety_policy.get_refusal_message())
 
+    user = await optional_user(authorization)
+    provider, api_key = await request_ai_credentials(request.provider, request.api_key, user)
     reply = get_ai_service().chat_with_image(
         request.message,
         request.image_data,
         request.mime_type,
         history=[item.model_dump() for item in request.history][-16:],
-        provider=request.provider,
-        api_key=request.api_key,
+        provider=provider,
+        api_key=api_key,
     )
     return {"reply": reply, "success": True}
 

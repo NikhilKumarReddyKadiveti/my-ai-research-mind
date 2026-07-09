@@ -74,6 +74,16 @@ class AIChatResponse(BaseModel):
     reply: str
     success: bool
 
+class UserApiKeyRequest(BaseModel):
+    provider: str = "auto"
+    api_key: str
+
+class UserApiKeyResponse(BaseModel):
+    provider: Optional[str] = None
+    has_key: bool
+    key_hint: Optional[str] = None
+    updated_at: Optional[str] = None
+
 class AIImageChatRequest(BaseModel):
     message: str
     image_data: str
